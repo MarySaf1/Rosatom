@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="Encoding">
+    <file url="file://$PROJECT_DIR$/Rosatom_index/work_proj/bad_field2.txt" charset="windows-1251" />
+    <file url="file://$PROJECT_DIR$/Rosatom_index/work_proj/firms.txt" charset="windows-1251" />
+    <file url="file://$PROJECT_DIR$/Rosatom_index/work_proj/positions.txt" charset="windows-1251" />
+    <file url="file://$PROJECT_DIR$/bad_field2.txt" charset="windows-1251" />
+    <file url="file://$PROJECT_DIR$/firms.txt" charset="windows-1251" />
+    <file url="file://$PROJECT_DIR$/positions.txt" charset="windows-1251" />
     <file url="file://$PROJECT_DIR$/work_proj/bad_field2.txt" charset="windows-1251" />
     <file url="file://$PROJECT_DIR$/work_proj/firms.txt" charset="windows-1251" />
     <file url="file://$PROJECT_DIR$/work_proj/positions.txt" charset="windows-1251" />
