@@ -14,7 +14,8 @@ ts = '2022-01-20 13:00:00'
 
 connection = pymysql.connect(user=USER_NAME_33, password=USER_PASSWORD_33, host=HOST_NAME_33, database='procedure_list',
                              cursorclass=pymysql.cursors.DictCursor)
-lots_view_info_id = ["449341222","449353575","449353608","449354459","449354477","437767345","449354659","449358918",
+lots_view_info_id = ["449341222",
+                     "449353575","449353608","449354459","449354477","437767345","449354659","449358918",
                      "449359272","449359290","449425750","449433259","449617036","449617084","449617138","449617173",
                      "448853773","449651483","449657605","449657623","449657700","449657709","449657712","449658160",
                      "449651636","449709419","449709571","449709572","449709573","449709574","449709575","449709576",
@@ -75,7 +76,7 @@ def lot_positions(connection, lot_id):
                                  cursorclass=pymysql.cursors.DictCursor)
     with connection:
         with connection.cursor() as cursor:
-            sql = "SELECT * FROM lot_positions WHERE lot_id = %s"
+            sql = "SELECT * FROM lot_positions WHERE lot_id = %s ORDER BY sequence_number"
             cursor.execute(sql, (lot_id))
             return [row for row in cursor]
 
@@ -121,6 +122,17 @@ def documentations(procedure_id):
         with connection.cursor() as cursor:
             sql = "SELECT * FROM documentations WHERE procedure_id = %s"
             cursor.execute(sql, (procedure_id))
+            return [row for row in cursor]
+
+
+def fabrikant_storage(file_id):
+    connection = pymysql.connect(user=USER_NAME_200, password=USER_PASSWORD_200, host=HOST_NAME_200,
+                                 database='fabrikant_storage',
+                                 cursorclass=pymysql.cursors.DictCursor)
+    with connection:
+        with connection.cursor() as cursor:
+            sql = "SELECT name FROM storage WHERE file_id = %s"
+            cursor.execute(sql, (file_id))
             return [row for row in cursor]
 
 
@@ -179,16 +191,19 @@ for trade1 in procedures_search:
                 if isinstance(fields['prices'], dict) and fields['prices']:
                     if not (fields['prices']['price']['value']['current']) == str(trade2[0]['real_price']):
                         f.write(
-                            f"procedure_id : {trade1['procedure_id']}, trading_platform_id: {trade1['trading_platform_id']}, lot_id: {trade1['lot_id']}, section_type: {trade1['section_type']}, price:{fields['prices']['price']['value']['current']} != real_price:{trade2[0]['real_price']}\n")
+                            f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, price:{fields['prices']['price']['value']['current']} != real_price:{trade2[0]['real_price']}\n")
                     if not (fields['prices']['auction_step_min']['value']) == str(trade2[0]['step_min']):
                         f.write(
-                            f"procedure_id : {trade1['procedure_id']}, trading_platform_id: {trade1['trading_platform_id']}, lot_id: {trade1['lot_id']}, section_type: {trade1['section_type']}, auction_step_min:{fields['prices']['auction_step_min']['value']['current']} != step_min :{trade2[0]['step_min ']}\n")
+                            f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, auction_step_min:{fields['prices']['auction_step_min']['value']['current']} != step_min :{trade2[0]['step_min ']}\n")
                     if not (fields['prices']['auction_step_max']['value']) == str(trade2[0]['step_max']):
                         f.write(
-                            f"procedure_id : {trade1['procedure_id']}, trading_platform_id: {trade1['trading_platform_id']}, lot_id: {trade1['lot_id']}, section_type: {trade1['section_type']}, auction_step_max:{fields['prices']['auction_step_max']['value']['current']} != step_max :{trade2[0]['step_max ']}\n")
+                            f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, auction_step_max:{fields['prices']['auction_step_max']['value']['current']} != step_max :{trade2[0]['step_max ']}\n")
                 else:
                     f.write(
-                        f"procedure_id : {trade1['procedure_id']}, trading_platform_id: {trade1['trading_platform_id']}, lot_id: {trade1['lot_id']}, section_type: {trade1['section_type']}, price:{fields['prices']} Not dict {fields['prices']} != real_price:{trade2[0]['real_price']}\n")
+                        f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, price:{fields['prices']} Not dict {fields['prices']} != real_price:{trade2[0]['real_price']}\n")
+                if not fields['nds'] == trade2[0]['nds']:
+                    f.write(
+                        f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, nds:{fields['nds']} != lotsnds:{trade2[0]['nds']}\n")
                 trade3 = lots_info(connection, trade1["lot_id"])
                 with open("bad_field2.txt", "a") as f:
                     if trade3:
@@ -207,7 +222,19 @@ for trade1 in procedures_search:
                             if not (fields['payment_condition']) == trade3[0]['payment_conditions']:
                                 f.write(
                                     f"lot_id : {trade1['lot_id']}, delivery_condition:{fields['payment_condition']} != payment_conditions:{trade3[0]['payment_conditions']}\n")
-
+                        if fields['result_status']:
+                            if trade2[0]['state'] == 'giveup' or trade2[0]['state'] == 'cancelled':
+                                if not fields['result_status'] == '8':
+                                    f.write(
+                                        f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, result_status:{fields['result_status']} \n")
+                            if trade2[0]['state'] == 'winner':
+                                if not fields['result_status'] == 4:
+                                    f.write(
+                                        f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, result_status:{fields['result_status']} \n")
+                            if trade2[0]['state'] == 'finished':
+                                if not fields['result_status'] == 16:
+                                    f.write(
+                                        f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, result_status:{fields['result_status']} \n")
                         if isinstance(fields.get('providing', None), dict):
                             if fields['providing']['offer_request_financing']:
                                 f.write(
@@ -283,37 +310,41 @@ for trade1 in procedures_search:
                 trade5_lotpos = lot_positions(connection, trade1["lot_id"])
                 with open("positions.txt", "a") as f:
                     if trade4_pos:
-                        if not trade4_pos[0]['number'] == trade5_lotpos[0]['sequence_number']:
-                            f.write(
-                                f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, number: {trade4_pos[0]['number']} != sequence_number: {trade5_lotpos[0]['sequence_number']}\n")
-                        if not trade4_pos[0]['name'] == trade5_lotpos[0]['name']:
-                            f.write(
-                                f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, name: {trade4_pos[0]['name']} != name: {trade5_lotpos[0]['name']}\n")
-                        if trade4_pos[0].get('customer_name', None):
-                            if not trade4_pos[0]['customer_name'] == trade5_lotpos[0]['customer_name']:
-                                f.write(
-                                    f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, customer_name: {trade4_pos[0]['customer_name']} != customer_name: {trade5_lotpos[0]['customer_name']}\n")
-                        if not trade4_pos[0]['quantity'] == trade5_lotpos[0]['quantity']:
-                            f.write(
-                                f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, quantity: {trade4_pos[0]['quantity']} != quantity: {trade5_lotpos[0]['quantity']}\n")
-                        if not trade4_pos[0]['unit'] == trade5_lotpos[0]['units']:
-                            f.write(
-                                f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, unit: {trade4_pos[0]['unit']} != units: {trade5_lotpos[0]['units']}\n")
-                        if not trade4_pos[0]['material_group'] == trade5_lotpos[0]['material_group']:
-                            f.write(
-                                f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, material_group: {trade4_pos[0]['material_group']} != material_group: {trade5_lotpos[0]['material_group']}\n")
-                        if not trade4_pos[0]['nds'] == trade5_lotpos[0]['unit_price_with_vat']:
-                            f.write(
-                                f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, nds: {trade4_pos[0]['nds']} != unit_price_with_vat: {trade5_lotpos[0]['unit_price_with_vat']}\n")
-                        if not trade4_pos[0]['price_with_nds'] == trade5_lotpos[0]['unit_price_with_vat']:
-                            f.write(
-                                f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, price_with_nds: {trade4_pos[0]['price_with_nds']} != unit_price_with_vat: {trade5_lotpos[0]['unit_price_with_vat']}\n")
-                        if not trade4_pos[0]['delivery_start'] == trade5_lotpos[0]['delivery_start_date']:
-                            f.write(
-                                f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, delivery_start: {trade4_pos[0]['delivery_start']} != delivery_start_date: {trade5_lotpos[0]['delivery_start_date']}\n")
-                        if not trade4_pos[0]['delivery_end'] == trade5_lotpos[0]['delivery_finish_date']:
-                            f.write(
-                                f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, delivery_end: {trade4_pos[0]['delivery_end']} != delivery_finish_date: {trade5_lotpos[0]['delivery_finish_date']}\n")
+                        for i in range(len(trade4_pos)):
+                            for m in range(len(trade5_lotpos)):
+                                if i == m:
+                                    if not trade4_pos[i]['number'] == trade5_lotpos[m]['sequence_number']:
+                                        f.write(
+                                            f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, number: {trade4_pos[i]['number']} != sequence_number: {trade5_lotpos[m]['sequence_number']}\n")
+                                    if not trade4_pos[i]['name'] == trade5_lotpos[m]['name']:
+                                        f.write(
+                                            f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, name: {trade4_pos[i]['name']} != name: {trade5_lotpos[m]['name']}\n")
+                                    if trade4_pos[i].get('customer_name', None):
+                                        if not trade4_pos[0]['customer_name'] == trade5_lotpos[m]['customer_name']:
+                                            f.write(
+                                                f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, customer_name: {trade4_pos[i]['customer_name']} != customer_name: {trade5_lotpos[m]['customer_name']}\n")
+                                    if not trade4_pos[i]['quantity'] == trade5_lotpos[m]['quantity']:
+                                        f.write(
+                                            f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, quantity: {trade4_pos[i]['quantity']} != quantity: {trade5_lotpos[m]['quantity']}\n")
+                                    if not trade4_pos[i]['unit'] == trade5_lotpos[m]['units']:
+                                        f.write(
+                                            f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, unit: {trade4_pos[i]['unit']} != units: {trade5_lotpos[m]['units']}\n")
+                                    if not trade4_pos[i]['material_group'] == trade5_lotpos[m]['material_group']:
+                                        f.write(
+                                            f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, material_group: {trade4_pos[i]['material_group']} != material_group: {trade5_lotpos[m]['material_group']}\n")
+                                    # if not trade5_lotpos[0]['unit_price_with_vat'] is None or trade5_lotpos[0]['price_without_vat'] is None:
+                                    #     if not trade4_pos[0]['nds'] == ((trade5_lotpos[0]['unit_price_with_vat'] - trade5_lotpos[0]['price_without_vat']) / trade5_lotpos[0]['unit_price_with_vat']):
+                                    #         f.write(
+                                    #             f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, nds: {trade4_pos[0]['nds']} != unit_price_with_vat: {trade5_lotpos[0]['unit_price_with_vat']}\n")
+                                    if not trade4_pos[i]['price_with_nds'] == trade5_lotpos[m]['unit_price_with_vat']:
+                                        f.write(
+                                            f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, price_with_nds: {trade4_pos[i]['price_with_nds']} != unit_price_with_vat: {trade5_lotpos[m]['unit_price_with_vat']}\n")
+                                    if not trade4_pos[i]['delivery_start'] == trade5_lotpos[m]['delivery_start_date']:
+                                        f.write(
+                                            f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, delivery_start: {trade4_pos[i]['delivery_start']} != delivery_start_date: {trade5_lotpos[m]['delivery_start_date']}\n")
+                                    if not trade4_pos[i]['delivery_end'] == trade5_lotpos[m]['delivery_finish_date']:
+                                        f.write(
+                                            f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, delivery_end: {trade4_pos[i]['delivery_end']} != delivery_finish_date: {trade5_lotpos[m]['delivery_finish_date']}\n")
                 trade7 = firms(trade1['organizer_id'])
                 trade6 = organization_data(trade7[0]['code_ogrn'])
                 with open("firms.txt", "a") as f:
@@ -331,6 +362,7 @@ for trade1 in procedures_search:
                             f"organizer_id : {trade1['organizer_id']}, address_legal: {trade6[0]['address_legal']} != jury_country: {str(trade7[0]['jury_country']) + ' ' + trade7[0]['jury_index'] + ' ' + trade7[0]['jury_region'] + ' ' + trade7[0]['jury_town'] + ' ' + trade7[0]['jury_address']}\n")
                 trade8 = documentation(trade1["procedure_id"])
                 trade9 = documentations(trade1["procedure_id"])
+                trade10 = fabrikant_storage(trade9[0]['file_id'])
                 with open("docs.txt", "a") as f:
                     if trade8:
                         if not trade8[0]['procedure_id'] == trade9[0]['procedure_id']:
@@ -345,3 +377,6 @@ for trade1 in procedures_search:
                         if not trade8[0]['doc_description'] == trade9[0]['description']:
                             f.write(
                                 f"procedure_id : {trade1['procedure_id']}, doc_description: {trade8[0]['doc_description']} != description: {trade9[0]['description']}\n")
+                        if not trade8[0]['doc_name'] == trade10[0]['name']:
+                            f.write(
+                                f"procedure_id : {trade1['procedure_id']}, doc_name: {trade8[0]['doc_name']} != name: {trade10[0]['name']}\n")

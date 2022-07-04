@@ -79,7 +79,7 @@ def lot_positions(connection, lot_id):
                                  cursorclass=pymysql.cursors.DictCursor)
     with connection:
         with connection.cursor() as cursor:
-            sql = "SELECT * FROM lot_positions WHERE lot_id = %s"
+            sql = "SELECT * FROM lot_positions WHERE lot_id = %s ORDER BY sequence_number"
             cursor.execute(sql, (lot_id))
             return [row for row in cursor]
 
@@ -127,6 +127,16 @@ def documentations(procedure_id):
             cursor.execute(sql, (procedure_id))
             return [row for row in cursor]
 
+
+def fabrikant_storage(file_id):
+    connection = pymysql.connect(user=USER_NAME_200, password=USER_PASSWORD_200, host=HOST_NAME_200,
+                                 database='fabrikant_storage',
+                                 cursorclass=pymysql.cursors.DictCursor)
+    with connection:
+        with connection.cursor() as cursor:
+            sql = "SELECT name FROM storage WHERE file_id = %s"
+            cursor.execute(sql, (file_id))
+            return [row for row in cursor]
 
 for trade1 in procedures_search:
     trade2 = lots(trade1["procedure_id"], trade1["lot_id"])
@@ -238,6 +248,19 @@ for trade1 in procedures_search:
                         if not (fields['request_order']) == trade3[0]['delivery_conditions']:
                             f.write(
                                 f"lot_id : {trade1['lot_id']}, delivery_condition:{fields['request_order']} != delivery_conditions:{trade3[0]['delivery_conditions']}\n")
+                        if fields['result_status']:
+                            if trade2[0]['state'] == 'giveup' or trade2[0]['state'] == 'cancelled':
+                                if not fields['result_status'] == '8':
+                                    f.write(
+                                        f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, result_status:{fields['result_status']} \n")
+                            if trade2[0]['state'] == 'winner':
+                                if not fields['result_status'] == 4:
+                                    f.write(
+                                        f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, result_status:{fields['result_status']} \n")
+                            if trade2[0]['state'] == 'finished':
+                                if not fields['result_status'] == 16:
+                                    f.write(
+                                        f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, result_status:{fields['result_status']} \n")
                         if not (fields['payment_condition']) == trade3[0]['payment_conditions']:
                             f.write(
                                 f"lot_id : {trade1['lot_id']}, delivery_condition:{fields['payment_condition']} != payment_conditions:{trade3[0]['payment_conditions']}\n")
@@ -306,7 +329,9 @@ for trade1 in procedures_search:
                                 'period_guarantee_ensuring']:
                                 f.write(
                                     f"lot_id : {trade1['lot_id']}, requisites:{fields['providing']['ensuring_guarantee_obligation']['requisites']} != period_guarantee_ensuring:{trade3[0]['period_guarantee_ensuring']}\n")
-
+                    if not fields['nds'] == trade2[0]['nds']:
+                        f.write(
+                            f"procedure_id : {trade1['procedure_id']}, lot_id: {trade1['lot_id']}, nds:{fields['nds']} != lotsnds:{trade2[0]['nds']}\n")
             trade4_pos = positions(trade1["procedure_id"], trade1["lot_id"])
             trade5_lotpos = lot_positions(connection, trade1["lot_id"])
             with open("positions.txt", "a") as f:
@@ -359,6 +384,7 @@ for trade1 in procedures_search:
                         f"organizer_id : {trade1['organizer_id']}, address_legal: {trade6[0]['address_legal']} != jury_country: {str(trade7[0]['jury_country']) + ' ' + trade7[0]['jury_index'] + ' ' + trade7[0]['jury_region'] + ' ' + trade7[0]['jury_town'] + ' ' + trade7[0]['jury_address']}\n")
             trade8 = documentation(trade1["procedure_id"])
             trade9 = documentations(trade1["procedure_id"])
+
             with open("docs.txt", "a") as f:
                 if trade8:
                     if not trade8[0]['procedure_id'] == trade9[0]['procedure_id']:
@@ -373,3 +399,8 @@ for trade1 in procedures_search:
                     if not trade8[0]['doc_description'] == trade9[0]['description']:
                         f.write(
                             f"procedure_id : {trade1['procedure_id']}, doc_description: {trade8[0]['doc_description']} != description: {trade9[0]['description']}\n")
+                    trade10 = fabrikant_storage(trade9[0]['file_id'])
+                    if trade10:
+                        if not trade8[0]['doc_name'] == trade10[0]['name']:
+                            f.write(
+                                f"procedure_id : {trade1['procedure_id']}, doc_name: {trade8[0]['doc_name']} != name: {trade10[0]['name']}\n")
